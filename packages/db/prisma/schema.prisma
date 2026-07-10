@@ -1,0 +1,338 @@
+// School Fee-Dues Portal — data model
+// Postgres only. Money stored as Decimal(12,2). Timestamps are timestamptz (UTC).
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../generated/client"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  ACCOUNTANT
+  STUDENT // reserved for future student portal
+  PARENT // reserved for future parent portal
+}
+
+enum PaymentDueStatus {
+  UPCOMING // grey — nothing sent
+  REMINDED // blue — pre-due reminder sent, unpaid
+  OVERDUE // red — due passed, unpaid
+  UNDER_REVIEW // yellow — parent reply arrived, awaiting triage
+  PAID // green — confirmed (terminal for that installment)
+}
+
+enum EmailType {
+  PRE_DUE_REMINDER
+  OVERDUE_NOTICE
+  ESCALATION
+  PAYMENT_RECEIVED
+  MANUAL_BLAST
+}
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum ReplyClassification {
+  UNREVIEWED
+  IS_PAYMENT
+  NOT_PAYMENT
+}
+
+enum ReplyMatchMethod {
+  THREAD // matched via In-Reply-To/References -> stored Message-ID
+  SENDER // matched via parentEmail -> single active due
+  UNMATCHED // needs manual triage
+}
+
+// ---------------------------------------------------------------------------
+// Academic structure
+// ---------------------------------------------------------------------------
+
+model AcademicYear {
+  id        String   @id @default(cuid())
+  label     String   @unique // e.g. "2025-26"
+  isActive  Boolean  @default(false)
+  timezone  String   @default("Asia/Kolkata")
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  classes        SchoolClass[]
+  feeStructures  FeeStructure[]
+  students       Student[]
+
+  @@index([isActive])
+}
+
+model SchoolClass {
+  id             String   @id @default(cuid())
+  name           String // e.g. "Grade 1"
+  section        String? // e.g. "A"
+  academicYearId String
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  academicYear AcademicYear  @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  feeStructure FeeStructure?
+  students     Student[]
+
+  @@unique([academicYearId, name, section])
+  @@index([academicYearId])
+}
+
+model FeeStructure {
+  id             String   @id @default(cuid())
+  schoolClassId  String   @unique // one fee structure per class per year
+  academicYearId String
+  totalAmount    Decimal  @db.Decimal(12, 2)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  schoolClass  SchoolClass   @relation(fields: [schoolClassId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear  @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  installments Installment[]
+
+  @@index([academicYearId])
+}
+
+model Installment {
+  id                String   @id @default(cuid())
+  feeStructureId    String
+  installmentNumber Int // 1..n, sequential
+  amount            Decimal  @db.Decimal(12, 2)
+  dueDate           DateTime @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(6)
+
+  feeStructure FeeStructure @relation(fields: [feeStructureId], references: [id], onDelete: Cascade)
+  paymentDues  PaymentDue[]
+
+  @@unique([feeStructureId, installmentNumber])
+  @@index([feeStructureId])
+  @@index([dueDate])
+}
+
+// ---------------------------------------------------------------------------
+// People
+// ---------------------------------------------------------------------------
+
+model Student {
+  id             String   @id @default(cuid())
+  name           String
+  regId          String   @unique
+  schoolClassId  String
+  academicYearId String
+  parentName     String
+  parentMobile   String
+  parentEmail    String
+  parentUserId   String? // reserved: links to a future PARENT user
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  schoolClass  SchoolClass  @relation(fields: [schoolClassId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  parentUser   User?        @relation("ParentOf", fields: [parentUserId], references: [id], onDelete: SetNull)
+
+  paymentDues     PaymentDue[]
+  emailLogs       EmailLog[]
+  incomingReplies IncomingReply[]
+
+  @@index([schoolClassId])
+  @@index([academicYearId])
+  @@index([regId])
+  @@index([parentEmail])
+  @@index([isActive])
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  name               String
+  email              String   @unique
+  passwordHash       String
+  role               UserRole
+  isActive           Boolean  @default(true)
+  mustChangePassword Boolean  @default(false)
+  lastLoginAt        DateTime? @db.Timestamptz(6)
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(6)
+
+  refreshTokens   RefreshToken[]
+  auditLogs       AuditLog[]
+  markedDues      PaymentDue[]    @relation("MarkedPaidBy")
+  reviewedReplies IncomingReply[] @relation("ReviewedBy")
+  parentedStudents Student[]      @relation("ParentOf")
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String
+  tokenHash    String // argon2 hash of the raw refresh token
+  family       String // rotation family id (reuse detection)
+  expiresAt    DateTime  @db.Timestamptz(6)
+  revokedAt    DateTime? @db.Timestamptz(6)
+  replacedById String?   @unique
+  userAgent    String?
+  ip           String?
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedBy RefreshToken? @relation("TokenRotation", fields: [replacedById], references: [id], onDelete: SetNull)
+  replaces   RefreshToken? @relation("TokenRotation")
+
+  @@index([userId])
+  @@index([family])
+  @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Dues (heart of the system)
+// ---------------------------------------------------------------------------
+
+model PaymentDue {
+  id                String           @id @default(cuid())
+  studentId         String
+  installmentId     String
+  amount            Decimal          @db.Decimal(12, 2)
+  status            PaymentDueStatus @default(UPCOMING)
+  dueDate           DateTime         @db.Timestamptz(6) // denormalized from Installment
+  paidAmount        Decimal?         @db.Decimal(12, 2)
+  paidAt            DateTime?        @db.Timestamptz(6)
+  markedPaidByUserId String?
+  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(6)
+
+  student      Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  installment  Installment     @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+  markedPaidBy User?           @relation("MarkedPaidBy", fields: [markedPaidByUserId], references: [id], onDelete: SetNull)
+  emailLogs    EmailLog[]
+  incomingReplies IncomingReply[]
+
+  @@unique([studentId, installmentId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([status, dueDate])
+  @@index([studentId])
+}
+
+// ---------------------------------------------------------------------------
+// Email + inbound
+// ---------------------------------------------------------------------------
+
+model EmailLog {
+  id                String      @id @default(cuid())
+  studentId         String
+  paymentDueId      String? // null for MANUAL_BLAST (allows repeat sends); set for automated types
+  type              EmailType
+  toEmail           String
+  subject           String
+  providerMessageId String? // RFC Message-ID — threading anchor
+  status            EmailStatus @default(QUEUED)
+  error             String?
+  attempts          Int         @default(0)
+  meta              Json? // e.g. { dueId } for manual blasts
+  queuedAt          DateTime    @default(now()) @db.Timestamptz(6)
+  sentAt            DateTime?   @db.Timestamptz(6)
+  createdAt         DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime    @updatedAt @db.Timestamptz(6)
+
+  student    Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  paymentDue PaymentDue? @relation(fields: [paymentDueId], references: [id], onDelete: Cascade)
+
+  // Automated idempotency: automated types always set paymentDueId (non-null) so
+  // (paymentDueId, type) is unique. MANUAL_BLAST rows use paymentDueId=null, and
+  // Postgres treats NULLs as distinct, so repeated blasts are allowed.
+  @@unique([paymentDueId, type])
+  @@index([studentId])
+  @@index([status])
+  @@index([providerMessageId])
+  @@index([type])
+}
+
+model IncomingReply {
+  id                 String              @id @default(cuid())
+  studentId          String?
+  paymentDueId       String?
+  fromEmail          String
+  subject            String
+  snippet            String
+  bodyText           String
+  gmailMessageId     String              @unique // Gmail id OR IMAP Message-ID
+  inReplyToMessageId String?
+  referencesIds      String[] // References header, split
+  matchMethod        ReplyMatchMethod    @default(UNMATCHED)
+  classification     ReplyClassification @default(UNREVIEWED)
+  reviewedByUserId   String?
+  reviewedAt         DateTime?           @db.Timestamptz(6)
+  receivedAt         DateTime            @db.Timestamptz(6)
+  createdAt          DateTime            @default(now()) @db.Timestamptz(6)
+
+  student    Student?    @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  paymentDue PaymentDue? @relation(fields: [paymentDueId], references: [id], onDelete: SetNull)
+  reviewedBy User?       @relation("ReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([classification])
+  @@index([studentId])
+  @@index([paymentDueId])
+  @@index([receivedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Audit + settings + templates
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String? // null for system/worker actions
+  actorType  String   @default("USER") // USER | SYSTEM
+  action     String // e.g. "DUE_MARK_PAID"
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+model AppSetting {
+  id                   String   @id @default("singleton")
+  reminderOffsetDays   Int      @default(10)
+  overdueGraceDays     Int      @default(0)
+  escalationOffsetDays Int      @default(10)
+  timezone             String   @default("Asia/Kolkata")
+  currency             String   @default("INR")
+  dailySweepCron       String   @default("0 6 * * *")
+  inboundCursor        String? // IMAP UID / Gmail historyId cursor
+  updatedByUserId      String?
+  updatedAt            DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model EmailTemplate {
+  id              String    @id @default(cuid())
+  type            EmailType @unique
+  subject         String
+  bodyHtml        String
+  bodyText        String
+  updatedByUserId String?
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+}

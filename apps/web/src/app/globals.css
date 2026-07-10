@@ -1,0 +1,173 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================ Design tokens ============================ */
+/* Light (primary): the school's bound accounts ledger — cool paper, ink,
+   a deep teal "seal" for interaction, and the traffic-light data layer. */
+:root {
+  --paper: #eef1ea;
+  --sheet: #fbfcf9;
+  --raised: #ffffff;
+  --ink: #1e2a30;
+  --ink-soft: #566469;
+  --ink-faint: #8b9691;
+  --rule: #dde3dd;
+  --rule-strong: #c6cec7;
+  --margin: #b23a2e;
+  --seal: #0c6e63;
+  --seal-ink: #094f47;
+  --seal-soft: #e4efec;
+
+  --red-ink: #b23a2e;  --red-bg: #f8e9e6;  --red-line: #e6c3bb;
+  --amber-ink: #9a5b12; --amber-bg: #f8efdf; --amber-line: #e7cfa6;
+  --green-ink: #1a7048; --green-bg: #e6f2eb; --green-line: #bbdec9;
+  --blue-ink: #1f5bb5;  --blue-bg: #e8f0fb;  --blue-line: #c3d7f2;
+  --gray-ink: #63716d;  --gray-bg: #eef1ec;  --gray-line: #d8ded8;
+
+  --btn-fg: #ffffff;
+  --sidebar: #17272a;
+  --sidebar-ink: #cdd8d4;
+  --sidebar-ink-soft: #83938e;
+  --sidebar-active: #0c6e63;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0f1517; --sheet: #172023; --raised: #1d282b;
+    --ink: #e7ede9; --ink-soft: #94a29d; --ink-faint: #6b7a75;
+    --rule: #263130; --rule-strong: #34413f;
+    --margin: #df6a5b; --seal: #3fb9ac; --seal-ink: #7fd6cc; --seal-soft: #14312e;
+    --red-ink: #e78d80;  --red-bg: #241715;  --red-line: #4a2b26;
+    --amber-ink: #d9a75c; --amber-bg: #241c10; --amber-line: #48391e;
+    --green-ink: #63c495; --green-bg: #10231a; --green-line: #244734;
+    --blue-ink: #82abe8;  --blue-bg: #121d2d; --blue-line: #273c5c;
+    --gray-ink: #94a29d;  --gray-bg: #1a2325; --gray-line: #2b3634;
+    --btn-fg: #06211e;
+    --sidebar: #0b1113; --sidebar-ink: #c3cfca; --sidebar-ink-soft: #6f7e79; --sidebar-active: #12564f;
+  }
+}
+
+:root[data-theme='light'] {
+  --paper: #eef1ea; --sheet: #fbfcf9; --raised: #ffffff;
+  --ink: #1e2a30; --ink-soft: #566469; --ink-faint: #8b9691;
+  --rule: #dde3dd; --rule-strong: #c6cec7; --margin: #b23a2e; --seal: #0c6e63; --seal-ink: #094f47; --seal-soft: #e4efec;
+  --red-ink: #b23a2e; --red-bg: #f8e9e6; --red-line: #e6c3bb;
+  --amber-ink: #9a5b12; --amber-bg: #f8efdf; --amber-line: #e7cfa6;
+  --green-ink: #1a7048; --green-bg: #e6f2eb; --green-line: #bbdec9;
+  --blue-ink: #1f5bb5; --blue-bg: #e8f0fb; --blue-line: #c3d7f2;
+  --gray-ink: #63716d; --gray-bg: #eef1ec; --gray-line: #d8ded8;
+  --btn-fg: #ffffff;
+  --sidebar: #17272a; --sidebar-ink: #cdd8d4; --sidebar-ink-soft: #83938e; --sidebar-active: #0c6e63;
+}
+
+:root[data-theme='dark'] {
+  --paper: #0f1517; --sheet: #172023; --raised: #1d282b;
+  --ink: #e7ede9; --ink-soft: #94a29d; --ink-faint: #6b7a75;
+  --rule: #263130; --rule-strong: #34413f;
+  --margin: #df6a5b; --seal: #3fb9ac; --seal-ink: #7fd6cc; --seal-soft: #14312e;
+  --red-ink: #e78d80; --red-bg: #241715; --red-line: #4a2b26;
+  --amber-ink: #d9a75c; --amber-bg: #241c10; --amber-line: #48391e;
+  --green-ink: #63c495; --green-bg: #10231a; --green-line: #244734;
+  --blue-ink: #82abe8; --blue-bg: #121d2d; --blue-line: #273c5c;
+  --gray-ink: #94a29d; --gray-bg: #1a2325; --gray-line: #2b3634;
+  --btn-fg: #06211e;
+  --sidebar: #0b1113; --sidebar-ink: #c3cfca; --sidebar-ink-soft: #6f7e79; --sidebar-active: #12564f;
+}
+
+/* ============================ Base ============================ */
+@layer base {
+  * { border-color: var(--rule); }
+  html { color-scheme: light dark; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { font-family: var(--font-display), var(--font-sans), sans-serif; }
+  ::selection { background: color-mix(in srgb, var(--seal) 22%, transparent); }
+  :focus-visible { outline: 2px solid var(--seal); outline-offset: 2px; border-radius: 4px; }
+  input, select, textarea, button { font-family: inherit; }
+}
+
+/* ============================ Components ============================ */
+@layer components {
+  .mono { font-family: var(--font-mono), ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  .card {
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    box-shadow: var(--shadow, 0 1px 2px rgba(30,42,48,.05), 0 8px 24px -14px rgba(30,42,48,.16));
+  }
+
+  .label {
+    font-family: var(--font-mono), monospace;
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft);
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+    font-weight: 600; font-size: 14px; line-height: 1;
+    padding: 10px 15px; border-radius: 9px; cursor: pointer;
+    border: 1px solid transparent; transition: background .12s, border-color .12s, opacity .12s;
+    white-space: nowrap;
+  }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+  .btn-primary { background: var(--seal); color: var(--btn-fg); border-color: var(--seal); }
+  .btn-primary:hover:not(:disabled) { background: var(--seal-ink); }
+  .btn-ghost { background: var(--sheet); color: var(--ink); border-color: var(--rule-strong); }
+  .btn-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--seal) 7%, var(--sheet)); }
+  .btn-danger { background: transparent; color: var(--red-ink); border-color: var(--red-line); }
+  .btn-danger:hover:not(:disabled) { background: var(--red-bg); }
+  .btn-sm { padding: 6px 11px; font-size: 13px; border-radius: 7px; }
+
+  /* Inputs */
+  .field {
+    width: 100%; background: var(--raised); color: var(--ink);
+    border: 1px solid var(--rule-strong); border-radius: 9px;
+    padding: 9px 12px; font-size: 14px;
+  }
+  .field:focus { outline: 2px solid var(--seal); outline-offset: 0; border-color: transparent; }
+  .field::placeholder { color: var(--ink-faint); }
+
+  /* Status stamp (traffic-light cell) — color + icon + label, never color-only */
+  .stamp {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 9px; border-radius: 7px; border: 1px solid;
+    font-family: var(--font-mono), monospace;
+    font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .stamp svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .stamp .amt { font-variant-numeric: tabular-nums; letter-spacing: 0; opacity: .85; }
+  .stamp-red { color: var(--red-ink); background: var(--red-bg); border-color: var(--red-line); }
+  .stamp-amber { color: var(--amber-ink); background: var(--amber-bg); border-color: var(--amber-line); }
+  .stamp-green { color: var(--green-ink); background: var(--green-bg); border-color: var(--green-line); }
+  .stamp-blue { color: var(--blue-ink); background: var(--blue-bg); border-color: var(--blue-line); }
+  .stamp-gray { color: var(--gray-ink); background: var(--gray-bg); border-color: var(--gray-line); }
+
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .dot-red { background: var(--red-ink); } .dot-amber { background: var(--amber-ink); }
+  .dot-green { background: var(--green-ink); } .dot-blue { background: var(--blue-ink); } .dot-gray { background: var(--gray-ink); }
+
+  /* Ledger register rows + the red margin rule (the signature detail) */
+  .reg-cell { height: 52px; padding: 0 14px; border-bottom: 1px solid var(--rule); font-size: 14px; vertical-align: middle; }
+  tbody tr:last-child .reg-cell { border-bottom: 0; }
+  tbody tr.group:hover .reg-cell { background: color-mix(in srgb, var(--seal) 5%, var(--sheet)); }
+  .reg-margin { width: 6px; padding: 0; border-right: 2px solid var(--margin); border-bottom: 1px solid var(--rule); }
+  tbody tr:last-child .reg-margin { border-bottom: 0; }
+  .reg-margin-head {
+    width: 6px; padding: 0; border-right: 2px solid var(--margin);
+    border-bottom: 1px solid var(--rule-strong);
+    background: color-mix(in srgb, var(--paper) 55%, var(--sheet));
+  }
+  .text-seal { color: var(--seal); }
+  .hover\:text-seal:hover { color: var(--seal); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

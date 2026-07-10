@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["prisma/**/*.ts", "index.d.ts", "factory.d.ts"],
+  "exclude": ["node_modules", "generated"]
+}

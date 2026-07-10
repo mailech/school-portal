@@ -1,0 +1,40 @@
+{
+  "name": "schoolportal",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.10.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter=./packages/** build && pnpm -r --filter=./apps/** build",
+    "build:packages": "pnpm --filter @app/types build && pnpm --filter @app/db build && pnpm --filter @app/core build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "db:generate": "pnpm --filter @app/db generate",
+    "db:migrate": "pnpm --filter @app/db migrate",
+    "db:migrate:deploy": "pnpm --filter @app/db migrate:deploy",
+    "db:seed": "pnpm --filter @app/db seed",
+    "db:studio": "pnpm --filter @app/db studio",
+    "db:reset": "pnpm --filter @app/db reset",
+    "dev:api": "pnpm --filter @app/api dev",
+    "dev:worker": "pnpm --filter @app/worker dev",
+    "dev:web": "pnpm --filter @app/web dev",
+    "start:api": "pnpm --filter @app/api start:prod",
+    "start:worker": "pnpm --filter @app/worker start:prod"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.10.1",
+    "@swc/jest": "^0.2.37",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.2",
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0",
+    "playwright-core": "^1.61.1",
+    "prettier": "^3.4.2",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
