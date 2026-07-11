@@ -9,6 +9,10 @@
   "scripts": {
     "build": "pnpm -r --filter=./packages/** build && pnpm -r --filter=./apps/** build",
     "build:packages": "pnpm --filter @app/types build && pnpm --filter @app/db build && pnpm --filter @app/core build",
+    "build:backend": "pnpm build:packages && pnpm --filter @app/api build && pnpm --filter @app/worker build",
+    "db:migrate:deploy:ci": "pnpm --filter @app/db exec prisma migrate deploy",
+    "db:seed:ci": "pnpm --filter @app/db exec tsx prisma/seed.ts",
+    "start:prod:combined": "node scripts/start-prod.mjs",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",

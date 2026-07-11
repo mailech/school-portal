@@ -18,12 +18,12 @@ async function bootstrap(): Promise<void> {
   app.setGlobalPrefix(config.api.globalPrefix);
   app.enableShutdownHooks();
 
-  await app.listen(config.api.port);
+  // Render (and most PaaS hosts) inject the port to bind on via $PORT.
+  // Fall back to the configured API_PORT for local/dev runs.
+  const port = process.env.PORT ? Number(process.env.PORT) : config.api.port;
+  await app.listen(port);
   const logger = app.get(Logger);
-  logger.log(
-    `API listening on http://localhost:${config.api.port}/${config.api.globalPrefix}`,
-    'Bootstrap',
-  );
+  logger.log(`API listening on port ${port} (prefix /${config.api.globalPrefix})`, 'Bootstrap');
 }
 
 void bootstrap();

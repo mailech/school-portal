@@ -21,6 +21,8 @@ packages/db/generated/
 # logs
 *.log
 logs/
+# but keep the API's source LogsModule (email & audit log feature)
+!apps/api/src/logs/
 npm-debug.log*
 
 # test / coverage

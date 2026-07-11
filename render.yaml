@@ -1,0 +1,98 @@
+# Render blueprint — backend (API + worker) for the School Fee-Dues Portal.
+#
+# The frontend (apps/web) is deployed separately on Vercel and talks to this
+# service via the same-origin /api proxy (see apps/web/next.config.mjs).
+#
+# This runs ONE free web service that hosts both the NestJS API and the worker
+# (daily sweep, outbound email, inbound reply detection) in a single instance —
+# because Render's free tier bills per always-on service and does not include
+# free Background Workers. Keep it awake with an external pinger (UptimeRobot /
+# cron-job.org) hitting the health check URL every ~10 minutes; that both avoids
+# cold starts AND keeps the worker's scheduler alive.
+#
+# Postgres is intentionally NOT defined here — use a persistent free database
+# (Neon or Supabase) and paste its connection string into DATABASE_URL, so your
+# data and the pg-boss queue survive (Render's free Postgres expires).
+
+services:
+  - type: web
+    name: school-portal-backend
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /api/health
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build:backend
+    startCommand: pnpm db:migrate:deploy:ci && pnpm start:prod:combined
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TZ_DEFAULT
+        value: Asia/Kolkata
+      - key: CURRENCY
+        value: INR
+
+      # --- Persistent Postgres (Neon/Supabase). Set in the dashboard. ---------
+      - key: DATABASE_URL
+        sync: false
+
+      # --- Auth: secrets are auto-generated once; keep them stable ------------
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_TTL
+        value: 30d
+      # Host-only cookie: the browser only ever sees the Vercel origin (it reaches
+      # this API through Next's server-side proxy), so the cookie must NOT be
+      # pinned to this Render domain. Leave COOKIE_DOMAIN empty.
+      - key: COOKIE_DOMAIN
+        value: ""
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: lax
+
+      # --- API / web origin ---------------------------------------------------
+      # Set WEB_ORIGIN to your Vercel URL (used for CORS on direct calls).
+      - key: WEB_ORIGIN
+        sync: false
+      - key: API_GLOBAL_PREFIX
+        value: api
+      - key: THROTTLE_TTL_SEC
+        value: "60"
+      - key: THROTTLE_LIMIT
+        value: "100"
+      - key: AUTH_THROTTLE_LIMIT
+        value: "8"
+
+      # --- Queue (pg-boss on the same Postgres) -------------------------------
+      - key: PGBOSS_SCHEMA
+        value: pgboss
+
+      # --- Scheduled sweep ----------------------------------------------------
+      - key: REMINDER_OFFSET_DAYS
+        value: "10"
+      - key: OVERDUE_GRACE_DAYS
+        value: "0"
+      - key: ESCALATION_OFFSET_DAYS
+        value: "10"
+      - key: DAILY_SWEEP_CRON
+        value: "0 6 * * *"
+
+      # --- Email: dev writes .eml files; set smtp/gmail_api for real delivery --
+      - key: EMAIL_PROVIDER
+        value: smtp_imap
+      - key: MAIL_TRANSPORT
+        value: dev
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_REPLY_TO
+        sync: false
+
+      # --- Dev endpoints MUST be off in production ----------------------------
+      - key: DEV_ENDPOINTS_ENABLED
+        value: "false"
