@@ -1,4 +1,5 @@
 import { Injectable, type OnApplicationBootstrap } from '@nestjs/common';
+import { Prisma } from '@app/db';
 import { DEFAULT_TEMPLATES } from '@app/core';
 import {
   EmailType,
@@ -30,12 +31,28 @@ export class SettingsService implements OnApplicationBootstrap {
     await this.ensureTemplates();
   }
 
+  /** Runs an upsert that may race with the sibling process (API + worker boot
+   *  together). On a concurrent-create collision (P2002) the row now exists, so
+   *  retrying once takes the update path and succeeds. */
+  private async upsertRace<T>(op: () => Promise<T>): Promise<T> {
+    try {
+      return await op();
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        return await op();
+      }
+      throw err;
+    }
+  }
+
   async get(): Promise<SettingsView> {
-    const row = await this.prisma.appSetting.upsert({
-      where: { id: 'singleton' },
-      update: {},
-      create: { id: 'singleton' },
-    });
+    const row = await this.upsertRace(() =>
+      this.prisma.appSetting.upsert({
+        where: { id: 'singleton' },
+        update: {},
+        create: { id: 'singleton' },
+      }),
+    );
     return {
       reminderOffsetDays: row.reminderOffsetDays,
       overdueGraceDays: row.overdueGraceDays,
@@ -65,11 +82,13 @@ export class SettingsService implements OnApplicationBootstrap {
   async ensureTemplates(): Promise<void> {
     for (const type of AUTOMATED_TEMPLATE_TYPES) {
       const tpl = DEFAULT_TEMPLATES[type];
-      await this.prisma.emailTemplate.upsert({
-        where: { type },
-        update: {},
-        create: { type, subject: tpl.subject, bodyHtml: tpl.bodyHtml, bodyText: tpl.bodyText },
-      });
+      await this.upsertRace(() =>
+        this.prisma.emailTemplate.upsert({
+          where: { type },
+          update: {},
+          create: { type, subject: tpl.subject, bodyHtml: tpl.bodyHtml, bodyText: tpl.bodyText },
+        }),
+      );
     }
   }
 
